@@ -25,7 +25,7 @@ Hosting is the next phase; see [secure team hosting](docs/HOSTING.md). Local dev
 
 ## Run locally
 
-Requires Node 22.12+ (Node 24 recommended) and npm.
+Requires Node 24 and npm (see `.nvmrc`).
 
 ```sh
 npm ci
