@@ -1,6 +1,6 @@
 # Secure team hosting with a shared password
 
-Status: password protection implemented and tested; hosting not yet provisioned. The user chose a simple shared password for the first team prototype.
+Status: deployed successfully on Render Free on September 8, 2026. Anonymous page/API access and wrong passwords returned 401; authenticated page access returned 200; one hosted run returned all four role reports and a final recommendation. The user chose a simple shared password for the first team prototype.
 
 ## Recommended first deployment: Render Node web service
 
@@ -23,7 +23,7 @@ Connect the GitHub repository and configure:
 
 Build dependencies must be installed during the build. OpenAI credentials stay in n8n. The runtime does not read your laptop's `.env`; enter values in the hosting dashboard.
 
-Choose a plan and confirm current costs and request timeout limits before creating the service. Hosting and API consumption are separate costs. Long requests must fit the host's end-to-end timeout; no hosted run has been verified yet.
+Choose a plan and confirm current costs and request timeout limits before creating the service. Hosting and API consumption are separate costs. Long requests must fit the host's end-to-end timeout; one hosted run has been verified end to end.
 
 ## What the team sees
 
@@ -55,10 +55,18 @@ An existing company Node host is also suitable if it provides HTTPS and compatib
 
 ## Still needed
 
-A hosting account/plan choice and the shared team password. A custom domain is optional for the first deployment. No hosting service has been created and no hosting purchase has been made.
+The app is deployed on Render Free. A custom domain is optional. No paid compute plan was selected. Runtime passwords and webhook credentials are configured privately in Render.
 
 ## Free-tier deployment template
 
 The repository includes `render.yaml` with `plan: free` and three secret inputs. In Render, create a Blueprint from this repository and supply the secret values privately. It provisions only the Nuxt web service. It does not provision n8n or fund OpenAI usage.
 
 Free web services sleep after 15 minutes without traffic and take about a minute to wake. Render applies monthly instance-hour, bandwidth, and build limits. Keep paid upgrades and overage settings disabled if a strict zero hosting budget is required; review the account billing settings before deployment. [Free plan limits](https://render.com/docs/free)
+
+## Current deployment
+
+- App: https://agent-workshop-71tt.onrender.com
+- Deployed source: `96f535a` on `main`.
+- Login username: `team`; password distributed privately.
+- Source was connected through the public repository URL. For future updates use Render **Manual Deploy → Deploy latest commit**; do not assume a GitHub push alone updates the service. The blueprint remains available for reproducible future deployments.
+- n8n workflow changes must still be published separately in n8n.
