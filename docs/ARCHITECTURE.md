@@ -33,6 +33,7 @@ sequenceDiagram
 | Component | Responsibility | Does not do |
 | --- | --- | --- |
 | `app/app.vue` | Input, loading/error states, escaped text rendering | Store secrets or persist runs |
+| `server/middleware/team-auth.ts` | Shared browser password, cross-site mutation check, fail-closed production config | Individual accounts or rate limiting |
 | `server/api/run.post.ts` | Validation, private config, one webhook call, error boundary | Call OpenAI directly or retry runs |
 | `shared/contract.ts` | Shared types and runtime response validation | Trust arbitrary upstream fields |
 | `n8n/agent-team.json` | Sequencing, prompts, model requests, aggregation | Execute generated code or deploy apps |
@@ -74,9 +75,13 @@ This is a sequential prompt pipeline with five roles. It has no tools, feedback 
 Suggested extension order:
 
 1. Require agents to label assumptions and distinguish requirements from suggestions; have QA challenge scope and ambiguities.
-2. Add team identity protection and server-side usage limits before public hosting (see HOSTING.md).
+2. Configure the included shared-password gate over HTTPS for a small team; add server-side usage limits and individual identity when needed (see HOSTING.md).
 3. Add real evaluation examples for usefulness, disagreement, and scope discipline.
 4. Add persisted runs only when users need history; migrate to asynchronous jobs only when measured run duration requires it.
 5. Introduce action-taking tools only with explicit authorization, constrained permissions, and reviewable outputs.
 
 When changing result fields, update the shared validator, n8n schema/collection logic, UI, and tests together. When changing only role instructions, update the exported workflow and the matching `n8n/*-body.txt` editor snippets.
+
+## Shared-password access
+
+Production requires `NUXT_TEAM_PASSWORD`; missing configuration returns 503. HTTP Basic authentication uses username `team` and a constant-time digest comparison. Invalid credentials receive 401 with a browser authentication challenge. Every route passes through the middleware, including `/api/run`; protected HTML is not cached. Cross-site browser mutations are rejected. Development without a configured password remains available for local work. Basic authentication requires HTTPS in deployment. Browsers cache credentials; there is no dedicated logout, per-user revocation, or rate limiter. Restart the service after rotating the shared password.

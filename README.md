@@ -13,6 +13,7 @@ A minimal Nuxt → n8n → OpenAI proof of concept. One form, one server endpoin
 
 | Item | Configure it here |
 | --- | --- |
+| A strong shared team password | Set `NUXT_TEAM_PASSWORD` in production; browser username is `team` |
 | An n8n instance reachable from your Nuxt server | Use your existing instance, n8n Cloud, or a local installation |
 | A webhook shared secret you choose | n8n Header Auth credential with header name `X-Agent-Secret`; same value in Nuxt `NUXT_N8N_WEBHOOK_SECRET` |
 | Published workflow's production webhook URL | Nuxt `NUXT_N8N_WEBHOOK_URL` |
@@ -21,7 +22,7 @@ A minimal Nuxt → n8n → OpenAI proof of concept. One form, one server endpoin
 
 Do not paste credentials into chat or commit them. No OpenAI key belongs in Nuxt. Each successful run makes five OpenAI requests. Check your project's model access and spending settings before the first live run.
 
-Hosting is the next phase; see [secure team hosting](docs/HOSTING.md). Local development needs no hosting account or domain. Before deployment, choose a Node-capable host, private access/authentication for the app, and a request timeout budget that fits five sequential calls. The webhook secret authenticates Nuxt to n8n; it does **not** protect the app's `/api/run` endpoint from public visitors. Keep this POC local/private until that access is configured.
+Hosting is the next phase; see [secure team hosting](docs/HOSTING.md). Local development needs no hosting account or domain. Before deployment, choose a Node-capable host, private access/authentication for the app, and a request timeout budget that fits five sequential calls. The webhook secret authenticates Nuxt to n8n. A separate `NUXT_TEAM_PASSWORD` protects the page and `/api/run` with a browser login (username `team`). Production refuses access if this password is missing. Use HTTPS when hosting.
 
 ## Run locally
 
@@ -44,7 +45,7 @@ npm run test:integration
 npm run preview
 ```
 
-Nuxt loads `.env` for development/preview. For the built Node server, set `NUXT_N8N_WEBHOOK_URL`, `NUXT_N8N_WEBHOOK_SECRET`, and optionally `NUXT_N8N_TIMEOUT_MS` in the host environment, then run `node .output/server/index.mjs`. A static-only host cannot run this endpoint.
+Set `NUXT_TEAM_PASSWORD` before previewing a production build. Development allows no password when this setting is empty. Nuxt loads `.env` for development/preview. For the built Node server, set `NUXT_N8N_WEBHOOK_URL`, `NUXT_N8N_WEBHOOK_SECRET`, and optionally `NUXT_N8N_TIMEOUT_MS` in the host environment, then run `node .output/server/index.mjs`. A static-only host cannot run this endpoint.
 
 ## Configure n8n
 
@@ -90,6 +91,8 @@ Each summary must be nonempty and at most 20,000 characters. Details must be an 
 
 ## Troubleshooting
 
+- **401 sign-in:** username is `team`; password is the server's `NUXT_TEAM_PASSWORD`.
+- **503 team password error:** configure `NUXT_TEAM_PASSWORD` and restart the production server.
 - **503 setup error:** fill the server environment URL and secret; timeout must be 100–300000 ms.
 - **502 request failed:** check URL, workflow publication, webhook credential, OpenAI credential/model, and n8n execution logs.
 - **502 unexpected result:** return the exact contract above, including the original run ID. Do not use Webhook's immediate-response mode.

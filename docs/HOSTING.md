@@ -1,51 +1,58 @@
-# Secure team hosting: proposed next phase
+# Secure team hosting with a shared password
 
-Status: researched and documented; no hosted instance has been created. The app currently has no user authentication or rate limiter. Public source code is fine; an unrestricted running `/api/run` would let visitors spend your API credits.
+Status: password protection implemented and tested; hosting not yet provisioned. The user chose a simple shared password for the first team prototype.
 
-## Recommended direction
+## Recommended first deployment: Render Node web service
 
-Use a Node web service on Render with a custom team hostname protected by Cloudflare Access. Keep n8n Cloud as the workflow host. Team members sign in through your identity provider or an explicit email allowlist. This preserves the current Nuxt → n8n → OpenAI application architecture; identity protection sits in front of Nuxt.
+Use the existing n8n Cloud workflow and deploy only Nuxt. Render supports GitHub-connected Node services, environment secrets, HTTPS, and custom domains. [Render web services](https://render.com/docs/web-services)
 
-Render supports GitHub-connected web services, build/start commands, environment secrets, and custom domains. Its default provider URL is publicly reachable. Source: [Render web services](https://render.com/docs/web-services).
+Connect the GitHub repository and configure:
 
-Cloudflare Access supports policies for self-hosted applications. Configure the entire hostname, including `/api/run`, and validate Access tokens at the origin or otherwise prevent direct-origin bypass. Merely protecting the custom domain leaves a provider URL exposed. Source: [Cloudflare Access setup](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/).
+| Setting | Value |
+| --- | --- |
+| Branch | `main` |
+| Runtime | Node 24 (`.nvmrc`) |
+| Build command | `npm ci && npm run build` |
+| Start command | `npm start` |
+| Bind address | `HOST=0.0.0.0` |
+| Port | Use Render's supplied `PORT` |
+| Secret | `NUXT_TEAM_PASSWORD`: a strong random shared password |
+| Secret | `NUXT_N8N_WEBHOOK_URL`: production webhook URL |
+| Secret | `NUXT_N8N_WEBHOOK_SECRET`: n8n's X-Agent-Secret value |
+| Timeout | `NUXT_N8N_TIMEOUT_MS=120000` |
 
-This is a recommendation, not a completed or tested deployment. Check current plan prices and end-to-end request limits before selecting a plan. A proxy timeout may be shorter than Nuxt's 120-second wait.
+Build dependencies must be installed during the build. OpenAI credentials stay in n8n. The runtime does not read your laptop's `.env`; enter values in the hosting dashboard.
 
-## Alternatives
+Choose a plan and confirm current costs and request timeout limits before creating the service. Hosting and API consumption are separate costs. Long requests must fit the host's end-to-end timeout; no hosted run has been verified yet.
 
-| Option | Fit | Work still required |
-| --- | --- | --- |
-| Render + Cloudflare Access | Managed Node hosting and team identity policy | Custom domain, policy, origin JWT verification/bypass prevention |
-| Existing company Node host + existing SSO gateway | Best if the team already has this infrastructure | Verify protection of every route and direct origin |
-| Private server + Cloudflare Tunnel/Access | Avoids a public origin listener | Maintain the server and tunnel; configure access policies |
+## What the team sees
 
-Prefer reusing an existing company identity/hosting setup if one is already available. Do not add a database just to get team sign-in.
+Opening the URL shows the browser's native login prompt. Username: **team**. Password: the value of `NUXT_TEAM_PASSWORD`. Share that password through your team's password manager, separately from the URL.
 
-## Deployment settings once access protection is implemented
+The server protects both the page and `/api/run`, including the hosting provider's default URL. If the password is missing, production returns 503 rather than exposing the app. Incorrect credentials return 401. Cross-site browser submissions are rejected. Always use HTTPS; Basic authentication is encoding, not encryption.
 
-- Runtime: Node 24; repository branch: `main`.
-- Build: `npm ci && npm run build` (build dependencies must be installed).
-- Start: `npm start`.
-- Host binding: `HOST=0.0.0.0`; use the host-provided `PORT`.
-- Runtime secrets: `NUXT_N8N_WEBHOOK_URL`, `NUXT_N8N_WEBHOOK_SECRET`.
-- Timeout: `NUXT_N8N_TIMEOUT_MS=120000`, aligned with every proxy and workflow limit.
-- OpenAI key stays in n8n; no build-time or public browser variables contain credentials.
-- Do not upload `.env`, `.nuxt`, `.output`, or local execution exports.
+Use a health check that supports the protected service, or a TCP check. Do not disable authentication globally to satisfy an unauthenticated HTTP health check; an optional isolated health route would need to be added deliberately if required by the chosen host.
 
-Build and verify the access layer before attaching live webhook credentials. Treat health-check exceptions carefully: never exempt `/api/run` or the whole app from authentication.
+## Limitations
 
-## Acceptance checks before sharing
+One shared login means no per-person audit or revocation. Rotating the password and restarting the service revokes the old password for everyone. Browsers may cache Basic credentials, so there is no reliable in-app logout button. This version has no brute-force protection, per-user budgets, or server-side concurrency limiter; use a strong random password and a small trusted group. Check provider usage limits and monitor executions. Timeout does not cancel an n8n run.
 
-- Signed-out and unapproved users cannot access the app or call `/api/run`.
-- Direct provider URL and alternate hostnames cannot bypass the access gate.
-- Missing, forged, expired, and wrong-audience identity tokens are rejected at the origin when using JWT validation.
-- Approved team members can submit one idea and see all five results.
-- A server-side request/concurrency limit prevents repeated submissions from creating unbounded cost; UI button disabling alone is not sufficient.
-- n8n execution access and retention match the team's data expectations.
-- Long-running requests and timeouts have been tested across the actual hosting/proxy path.
-- Runtime secrets are private and not bundled into browser assets.
+## Checks before sharing
 
-## Decisions needed
+1. Signed-out requests to the page and `/api/run` receive 401.
+2. The correct password unlocks both, including on the provider's default hostname.
+3. A wrong password cannot trigger n8n.
+4. The entire connection uses HTTPS.
+5. One approved test completes across the deployed Nuxt → n8n → OpenAI path.
+6. Secrets are absent from the repository and browser assets.
+7. Review n8n execution retention and access before submitting internal team data.
 
-Choose the host/account and budget, team hostname/domain, authorized member emails or identity group, and expected usage. No deployment or billing purchase should be inferred from publication of the source repository.
+## Future individual sign-in
+
+Cloudflare Access can put an email allowlist or company identity provider in front of the app. If adopted, protect the full hostname including `/api/run`, and validate identity tokens at the origin or prevent direct-origin bypass. Protecting only a custom domain is insufficient when a provider URL remains open. [Cloudflare Access setup](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/)
+
+An existing company Node host is also suitable if it provides HTTPS and compatible timeouts. No database is required for the shared-password approach.
+
+## Still needed
+
+A hosting account/plan choice and the shared team password. A custom domain is optional for the first deployment. No hosting service has been created and no hosting purchase has been made.
