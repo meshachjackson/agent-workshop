@@ -56,3 +56,9 @@ An existing company Node host is also suitable if it provides HTTPS and compatib
 ## Still needed
 
 A hosting account/plan choice and the shared team password. A custom domain is optional for the first deployment. No hosting service has been created and no hosting purchase has been made.
+
+## Free-tier deployment template
+
+The repository includes `render.yaml` with `plan: free` and three secret inputs. In Render, create a Blueprint from this repository and supply the secret values privately. It provisions only the Nuxt web service. It does not provision n8n or fund OpenAI usage.
+
+Free web services sleep after 15 minutes without traffic and take about a minute to wake. Render applies monthly instance-hour, bandwidth, and build limits. Keep paid upgrades and overage settings disabled if a strict zero hosting budget is required; review the account billing settings before deployment. [Free plan limits](https://render.com/docs/free)

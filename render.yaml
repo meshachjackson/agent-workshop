@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: agent-workshop
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NUXT_N8N_TIMEOUT_MS
+        value: 120000
+      - key: NUXT_TEAM_PASSWORD
+        sync: false
+      - key: NUXT_N8N_WEBHOOK_URL
+        sync: false
+      - key: NUXT_N8N_WEBHOOK_SECRET
+        sync: false
