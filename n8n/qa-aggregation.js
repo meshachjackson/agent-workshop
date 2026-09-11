@@ -246,5 +246,10 @@ function aggregate(result, state) {
 const call = $('When executed by another workflow').first().json;
 if (call.mode !== 'review' && call.mode !== 'result') throw new Error('QA aggregation: unknown mode ' + call.mode);
 const qaReview = aggregate(call.mode === 'review' ? parseResponse($json) : call.payload, call.state);
-if (call.mode === 'review') qaReview.configHash = "96a5b2167959644dbc8b8da120715af5cd488f4c3df9d50000ab9c80be891a8d";
+if (call.mode === 'review') {
+  qaReview.configHash = "96a5b2167959644dbc8b8da120715af5cd488f4c3df9d50000ab9c80be891a8d";
+  // The QA evaluation harness reports token usage per fixture. It used to read this off the QA
+  // reviewer node directly, which is no longer reachable from the caller.
+  qaReview.usage = $json.usage;
+}
 return [{json: qaReview}];
