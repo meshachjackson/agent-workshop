@@ -21,12 +21,29 @@ const canonicalName = name => name.replace(/1$/, '')
 const trimExpression = value =>
   typeof value === 'string' && value.startsWith('={{') ? value.trimEnd() : value
 
+const mapStrings = (value, fn) => {
+  if (Array.isArray(value)) return value.map(item => mapStrings(item, fn))
+  if (value && typeof value === 'object')
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, mapStrings(item, fn)]))
+  return fn(value)
+}
+
 const sortKeys = value => {
   if (Array.isArray(value)) return value.map(sortKeys)
   if (value && typeof value === 'object')
     return Object.fromEntries(Object.keys(value).sort().map(key => [key, sortKeys(value[key])]))
   return trimExpression(value)
 }
+
+// Code nodes and expressions reach other nodes by name, as $('Collect Developer'). Renaming a node
+// without rewriting those references leaves the export importable but broken at runtime, so the
+// rename and the reference rewrite have to happen together.
+const rewriteReferences = (value, names) =>
+  typeof value === 'string'
+    ? value.replace(/\$\(\s*(["'])(.*?)\1\s*\)/g, (match, quote, name) =>
+        names.has(name) ? `$(${quote}${names.get(name)}${quote})` : match,
+      )
+    : value
 
 export function normalize(raw) {
   const workflow = raw.workflow ?? raw
@@ -37,7 +54,7 @@ export function normalize(raw) {
     return sortKeys({
       id: slug(name),
       name,
-      parameters: node.parameters ?? {},
+      parameters: mapStrings(node.parameters ?? {}, value => rewriteReferences(value, names)),
       position: node.position,
       type: node.type,
       typeVersion: node.typeVersion,

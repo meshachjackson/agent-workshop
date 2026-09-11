@@ -50,6 +50,23 @@ test('the code-built QA request keeps the same request invariants', () => {
   assert.match(source, /requestBody:\s*makeRequest\(/, 'Prepare QA must expose the request as requestBody')
 })
 
+// Nodes reach each other by name, so a rename that misses a $('Other node') reference leaves an
+// export that imports cleanly and then fails at runtime. Renaming is routine here, because n8n
+// appends "1" to every name when a workflow is duplicated.
+test('every cross-node reference resolves to a node in the export', () => {
+  const names = new Set(workflow.nodes.map((n: { name: string }) => n.name))
+  const reference = /\$\(\s*(["'])(.*?)\1\s*\)/g
+  const collect = (value: unknown, found: Set<string>) => {
+    if (typeof value === 'string') for (const [, , name] of value.matchAll(reference)) found.add(name)
+    else if (value && typeof value === 'object') for (const child of Object.values(value)) collect(child, found)
+  }
+  for (const node of workflow.nodes) {
+    const found = new Set<string>()
+    collect(node.parameters, found)
+    for (const name of found) assert.ok(names.has(name), `${node.name} references missing node ${name}`)
+  }
+})
+
 test('portable workflow has no saved credentials or pinned execution data', () => {
   assert.equal(workflow.active, false)
   assert.deepEqual(workflow.pinData, {})
