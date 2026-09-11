@@ -87,5 +87,4 @@ export function normalize(raw) {
   }
 }
 
-const [input] = process.argv.slice(2)
-if (input) process.stdout.write(JSON.stringify(normalize(JSON.parse(readFileSync(input, 'utf8'))), null, 2) + '\n')
+export const readWorkflow = path => JSON.parse(readFileSync(path, 'utf8'))
