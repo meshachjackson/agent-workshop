@@ -80,9 +80,12 @@ expensive failure mode, not any single operation.
   `Call QA review` and `Call QA recheck`. It is wired by hand; README step 5 covers it.
 - **The QA reviewer runs `gpt-4.1` on purpose**, pinned in `n8n/qa-prepare.js`. The other five roles
   read `gpt-4.1-mini` from `Configure model`. This is deliberate. Do not "fix" it.
-- **The isolated QA evaluation workflow still holds its own copy** of the aggregation block. It is
-  not in this repo, so nothing guards it. Until it calls the sub-workflow, it regression-tests a
-  copy rather than the code the planning workflow runs.
+- **The isolated QA evaluation workflow is live-only.** It calls the QA review sub-workflow now, so
+  it regression-tests the real code rather than a copy, but it is not exported into this repo and
+  nothing here guards it. Its fixture passed on 2026-09-11 (execution 183, verdict NEEDS REVISION,
+  no mismatches, configHash 96a5b216…), which is the evidence that extracting the QA reviewer did
+  not change its behavior. Re-run it after any change to `n8n/qa-aggregation.js` or
+  `n8n/qa-prepare.js`.
 
 ## Before you say it works
 
