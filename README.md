@@ -6,7 +6,8 @@ A minimal Nuxt → n8n → OpenAI proof of concept. One form, one server endpoin
 
 - [Architecture, data flow, design decisions, and extension guide](docs/ARCHITECTURE.md)
 - [Secure team hosting proposal](docs/HOSTING.md)
-- [Importable n8n workflow](n8n/agent-team.json)
+- [Importable planning workflow](n8n/agent-team.json)
+- [Importable QA review sub-workflow](n8n/qa-review.json)
 - [Environment template](.env.example)
 
 ## What you must provide
@@ -49,12 +50,13 @@ Set `NUXT_TEAM_PASSWORD` before previewing a production build. Development allow
 
 ## Configure n8n
 
-1. Import `n8n/agent-team.json`. It imports inactive and without credentials.
-2. Open **Webhook**. Select/create its Header Auth credential: name `X-Agent-Secret`, value your shared secret. It accepts POST and responds using the final Respond to Webhook node.
-3. Open **Configure model** and confirm `gpt-4.1-mini` is available to your API project, or set another compatible model ID.
-4. Create a separate Header Auth credential: name `Authorization`, value `Bearer YOUR_API_KEY`. Select this credential in **all five HTTP Request nodes**: Architect, Product manager, Developer, QA reviewer, Synthesizer. These call OpenAI's Responses API directly; no SDK is required.
-5. Publish/activate the workflow. Copy its **Production URL** into `.env` and set the matching secret. Restart Nuxt after editing `.env`.
-6. Submit a small idea. Inspect the n8n execution and compare the five results in the UI. This is the required live integration check; local tests cannot verify your n8n version, credentials, model access, or billing.
+1. Import `n8n/qa-review.json` first, then `n8n/agent-team.json`. Both import inactive and without credentials. The QA sub-workflow has to exist before the planning workflow can point at it.
+2. Open **Webhook** in agent-team. Select/create its Header Auth credential: name `X-Agent-Secret`, value your shared secret. It accepts POST and responds using the final Respond to Webhook node.
+3. Open **Configure model** and confirm `gpt-4.1-mini` is available to your API project, or set another compatible model ID. The QA reviewer is pinned separately to `gpt-4.1` inside `n8n/qa-prepare.js`; that is deliberate, and it does not read this setting.
+4. Create a separate Header Auth credential: name `Authorization`, value `Bearer YOUR_API_KEY`. Select this credential in **all five HTTP Request nodes**, which now span both workflows: Architect, Product manager, Developer and Synthesizer in agent-team, and QA reviewer in the QA sub-workflow. These call OpenAI's Responses API directly; no SDK is required.
+5. In agent-team, open **Call QA review** and **Call QA recheck** and point both at the imported **Agent team — QA review** workflow. The exports ship with an empty workflow reference, because the sub-workflow's ID is assigned by your own n8n instance on import.
+6. Publish/activate the workflow. Copy its **Production URL** into `.env` and set the matching secret. Restart Nuxt after editing `.env`.
+7. Submit a small idea. Inspect the n8n execution and compare the five results in the UI. This is the required live integration check; local tests cannot verify your n8n version, credentials, model access, or billing.
 
 The test webhook URL only works while n8n is listening for a test event. Use the production URL for normal use. The workflow's HTTP Request nodes use a 90-second per-call limit; Nuxt waits 120 seconds total by default. Keep outputs concise. A timeout does not cancel the n8n run; inspect its execution before resubmitting to avoid duplicate cost. The app does not retry automatically. Workflow errors may surface as either a failed request or a timeout depending on n8n's response behavior.
 
@@ -63,7 +65,8 @@ The test webhook URL only works while n8n is listening for a test event. Use the
 - `app/app.vue`: sends `{ idea }` to `/api/run`; disables duplicate submissions; renders waiting, errors, the final recommendation, and each agent's summary/details. Model text is escaped as ordinary text, never rendered as HTML.
 - `server/api/run.post.ts`: validates input, reads private runtime configuration, generates a run ID, calls n8n once, validates its response, and returns only contract fields. Upstream error bodies and secrets are not forwarded to the browser.
 - `shared/contract.ts`: defines and validates the contract so a malformed or mismatched workflow response becomes an actionable error.
-- `n8n/agent-team.json`: passes the idea and accumulated agent outputs through Architect → Product manager → Developer → QA reviewer → Synthesizer. Each collection node retains prior results before moving to the next role.
+- `n8n/agent-team.json`: passes the idea and accumulated agent outputs through Architect → Product manager → Developer → QA review → Synthesizer. Each collection node retains prior results before moving to the next role.
+- `n8n/qa-review.json`: the QA reviewer, called twice. Mode `review` builds the request, calls the model and aggregates the reply; mode `result` skips the model and re-aggregates a stored review so the synthesis can be re-verified. Its two code nodes are generated from `n8n/qa-prepare.js` and `n8n/qa-aggregation.js`, which are the source of truth; a test fails if the exports drift from them.
 
 Nuxt sends:
 

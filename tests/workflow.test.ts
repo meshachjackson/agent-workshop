@@ -1,21 +1,33 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-const workflow = JSON.parse(readFileSync(new URL('../n8n/agent-team.json', import.meta.url), 'utf8'))
 
-// Two request shapes exist. Four roles build their own body inline as an n8n expression. QA
-// reviewer is a passthrough: the upstream Prepare QA code node assembles the request and hands it
-// over as $json.requestBody, so its expression cannot be evaluated without that node's state.
+const load = (name: string) => JSON.parse(readFileSync(new URL(`../n8n/${name}`, import.meta.url), 'utf8'))
+const read = (name: string) => readFileSync(new URL(`../n8n/${name}`, import.meta.url), 'utf8')
+
+const workflow = load('agent-team.json')
+const qaReview = load('qa-review.json')
+const workflows = [
+  { name: 'agent-team.json', export: workflow },
+  { name: 'qa-review.json', export: qaReview },
+]
+
+// Four roles build their own request body inline as an n8n expression. QA reviewer is a passthrough:
+// Prepare QA assembles its request in code and hands it over as $json.requestBody, so its expression
+// cannot be evaluated without that node's state. Both live in qa-review.json now.
 const PASSTHROUGH_BODY = '={{ JSON.stringify($json.requestBody) }}'
+const httpNodes = workflows.flatMap(w => w.export.nodes.filter((n: { type: string }) => n.type.endsWith('httpRequest')))
+const nodeById = (wf: { nodes: { id: string }[] }, id: string) => wf.nodes.find(n => n.id === id)
 
-const httpNodes = workflow.nodes.filter((n: { type: string }) => n.type.endsWith('httpRequest'))
-const codeNodeSource = (id: string) =>
-  workflow.nodes.find((n: { id: string }) => n.id === id).parameters.jsCode
+test('the five roles are spread across the planning workflow and the QA sub-workflow', () => {
+  assert.equal(httpNodes.length, 5)
+  assert.equal(workflow.nodes.filter((n: { type: string }) => n.type.endsWith('httpRequest')).length, 4)
+  assert.ok(nodeById(qaReview, 'qa-reviewer'), 'QA reviewer belongs to the QA sub-workflow')
+})
 
 test('every request node body matches its committed editor snippet', () => {
-  assert.equal(httpNodes.length, 5)
   for (const node of httpNodes) {
-    const snippet = readFileSync(new URL(`../n8n/${node.id}-body.txt`, import.meta.url), 'utf8').trim()
+    const snippet = read(`${node.id}-body.txt`).trim()
     assert.equal(snippet, node.parameters.body.slice(1), `${node.name}: snippet drifted from export`)
   }
 })
@@ -37,57 +49,67 @@ test('inline request expressions evaluate and preserve structured output schema'
   }
 })
 
-// The QA request is assembled in code, so assert the invariants at the source instead. This is a
-// static check, weaker than the evaluation above; a fixture-driven evaluation of Prepare QA would
-// be stronger if the QA schema keeps growing.
+// The QA request is assembled in code, so assert the invariants at the source instead. Its model is
+// deliberately pinned to gpt-4.1 rather than the Configure model value the other five roles read.
 test('the code-built QA request keeps the same request invariants', () => {
-  const passthrough = httpNodes.filter((n: { parameters: { body: string } }) => n.parameters.body === PASSTHROUGH_BODY)
-  assert.equal(passthrough.length, 1)
-  assert.equal(passthrough[0].id, 'qa-reviewer')
-  const source = codeNodeSource('prepare-qa')
+  const source = read('qa-prepare.js')
   assert.match(source, /store:\s*false/, 'Prepare QA must not persist requests at the provider')
   assert.match(source, /strict:\s*true/, 'Prepare QA must request strict structured output')
-  assert.match(source, /requestBody:\s*makeRequest\(/, 'Prepare QA must expose the request as requestBody')
+  assert.match(source, /model:\s*'gpt-4\.1'/, 'Prepare QA runs a deliberately pinned model')
+  assert.equal(nodeById(qaReview, 'prepare-qa').parameters.jsCode, source, 'Prepare QA drifted from n8n/qa-prepare.js')
+})
+
+test('the QA sub-workflow matches its committed sources', () => {
+  assert.equal(nodeById(qaReview, 'aggregate-qa-review').parameters.jsCode, read('qa-aggregation.js'))
+})
+
+// The QA aggregation block used to exist as three byte-identical copies: both collectors in the
+// planning workflow and Collect QA reviewer in the isolated QA evaluation workflow. It now lives
+// only in the sub-workflow, so no other node may carry a copy.
+test('the QA aggregation block exists in exactly one node', () => {
+  const carriers = workflows.flatMap(w =>
+    w.export.nodes
+      .filter((n: { parameters: { jsCode?: string } }) => n.parameters.jsCode?.includes('function aggregate('))
+      .map((n: { name: string }) => `${w.name}:${n.name}`),
+  )
+  assert.deepEqual(carriers, ['qa-review.json:Aggregate QA review'])
 })
 
 // Nodes reach each other by name, so a rename that misses a $('Other node') reference leaves an
 // export that imports cleanly and then fails at runtime. Renaming is routine here, because n8n
 // appends "1" to every name when a workflow is duplicated.
-test('every cross-node reference resolves to a node in the export', () => {
-  const names = new Set(workflow.nodes.map((n: { name: string }) => n.name))
+test('every cross-node reference resolves to a node in its own export', () => {
   const reference = /\$\(\s*(["'])(.*?)\1\s*\)/g
   const collect = (value: unknown, found: Set<string>) => {
     if (typeof value === 'string') for (const [, , name] of value.matchAll(reference)) found.add(name)
     else if (value && typeof value === 'object') for (const child of Object.values(value)) collect(child, found)
   }
-  for (const node of workflow.nodes) {
-    const found = new Set<string>()
-    collect(node.parameters, found)
-    for (const name of found) assert.ok(names.has(name), `${node.name} references missing node ${name}`)
+  for (const { name: file, export: wf } of workflows) {
+    const names = new Set(wf.nodes.map((n: { name: string }) => n.name))
+    for (const node of wf.nodes) {
+      const found = new Set<string>()
+      collect(node.parameters, found)
+      for (const ref of found) assert.ok(names.has(ref), `${file}: ${node.name} references missing node ${ref}`)
+    }
   }
 })
 
-// The QA aggregation logic existed as three byte-identical copies: both collectors here and the
-// Collect QA reviewer node of the isolated QA evaluation workflow. n8n/qa-aggregation.js is now the
-// single source. Until the collectors call the sub-workflow, they still embed it, so assert the
-// embedded copies have not drifted from the source. Once they are rewired this test finds no
-// embedded copies and still passes.
-test('every embedded copy of the QA aggregation block matches its source', () => {
-  const source = readFileSync(new URL('../n8n/qa-aggregation.js', import.meta.url), 'utf8')
-  const block = source.slice(0, source.indexOf('\n// Entry point.'))
-  assert.ok(block.includes('function aggregate('), 'canonical block is missing its entry function')
-  const subWorkflow = JSON.parse(readFileSync(new URL('../n8n/qa-aggregation.json', import.meta.url), 'utf8'))
-  const aggregator = subWorkflow.nodes.find((n: { id: string }) => n.id === 'aggregate-qa-review')
-  assert.equal(aggregator.parameters.jsCode, source, 'sub-workflow drifted from n8n/qa-aggregation.js')
-  for (const node of workflow.nodes) {
-    const code = node.parameters.jsCode
-    if (typeof code !== 'string' || !code.includes('function aggregate(')) continue
-    assert.ok(code.includes(block), `${node.name}: embedded QA block drifted from n8n/qa-aggregation.js`)
+// The whole point of the split: an agent has to be able to read a workflow in one call. These
+// ceilings are the regression test for the bloat that made that impossible.
+test('no workflow or node grows back past the size it can be read at', () => {
+  for (const { name, export: wf } of workflows) {
+    assert.ok(JSON.stringify(wf).length < 70_000, `${name} is too large to read in one call`)
+    for (const node of wf.nodes) {
+      const size = JSON.stringify(node).length
+      assert.ok(size < 35_000, `${name}: node ${node.name} is ${size} characters`)
+    }
   }
 })
 
-test('portable workflow has no saved credentials or pinned execution data', () => {
-  assert.equal(workflow.active, false)
-  assert.deepEqual(workflow.pinData, {})
-  for (const node of workflow.nodes) assert.equal(node.credentials, undefined)
+test('portable workflows have no saved credentials or pinned execution data', () => {
+  for (const { name, export: wf } of workflows) {
+    assert.equal(wf.active, false, name)
+    assert.deepEqual(wf.pinData, {}, name)
+    for (const node of wf.nodes) assert.equal(node.credentials, undefined, `${name}: ${node.name}`)
+  }
 })

@@ -240,8 +240,11 @@ function aggregate(result, state) {
 }
 
 // Entry point. Two modes, because the parent workflow needs this logic twice:
-//   response — the raw OpenAI QA reply, still to be parsed
-//   result   — an already-parsed QA object, re-aggregated to re-verify the synthesis
-const { mode, payload, state } = $json;
-if (mode !== 'response' && mode !== 'result') throw new Error('QA aggregation: unknown mode ' + mode);
-return [{ json: aggregate(mode === 'response' ? parseResponse(payload) : payload, state) }];
+//   review — Prepare QA and the QA reviewer ran first, so $json holds the raw OpenAI reply
+//   result — no model call; the caller supplies an already-parsed QA object to re-aggregate
+// Both read their arguments from the trigger, which is the only node on both paths.
+const call = $('When executed by another workflow').first().json;
+if (call.mode !== 'review' && call.mode !== 'result') throw new Error('QA aggregation: unknown mode ' + call.mode);
+const qaReview = aggregate(call.mode === 'review' ? parseResponse($json) : call.payload, call.state);
+if (call.mode === 'review') qaReview.configHash = "96a5b2167959644dbc8b8da120715af5cd488f4c3df9d50000ab9c80be891a8d";
+return [{json: qaReview}];
