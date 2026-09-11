@@ -93,6 +93,13 @@ expensive failure mode, not any single operation.
 npm test && npm run typecheck && npm run build && npm run test:integration
 ```
 
+Both workflows have been proven by execution, not just by tests. The QA evaluation harness passed
+its fixture on 2026-09-11 (execution 183), and a staging copy of the planning workflow ran a full
+request end to end the same day (execution 185, 51 seconds, contract-shaped response, QA verdict
+NEEDS REVISION, ~29K tokens across five calls). That staging run is what exercised the Collect
+Synthesizer split, the result-mode recheck and the Finalize synthesis blocker branch. Stage a
+duplicate and run it the same way before changing the live workflow again.
+
 None of that proves the workflow runs. Local tests cannot check your n8n version, credentials,
 model access, or billing. The planning workflow is live on the `agent-team` webhook and wired to
 Nuxt, so a real execution is the only evidence that counts — and each successful run makes five
