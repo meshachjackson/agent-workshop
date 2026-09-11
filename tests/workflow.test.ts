@@ -67,6 +67,25 @@ test('every cross-node reference resolves to a node in the export', () => {
   }
 })
 
+// The QA aggregation logic existed as three byte-identical copies: both collectors here and the
+// Collect QA reviewer node of the isolated QA evaluation workflow. n8n/qa-aggregation.js is now the
+// single source. Until the collectors call the sub-workflow, they still embed it, so assert the
+// embedded copies have not drifted from the source. Once they are rewired this test finds no
+// embedded copies and still passes.
+test('every embedded copy of the QA aggregation block matches its source', () => {
+  const source = readFileSync(new URL('../n8n/qa-aggregation.js', import.meta.url), 'utf8')
+  const block = source.slice(0, source.indexOf('\n// Entry point.'))
+  assert.ok(block.includes('function aggregate('), 'canonical block is missing its entry function')
+  const subWorkflow = JSON.parse(readFileSync(new URL('../n8n/qa-aggregation.json', import.meta.url), 'utf8'))
+  const aggregator = subWorkflow.nodes.find((n: { id: string }) => n.id === 'aggregate-qa-review')
+  assert.equal(aggregator.parameters.jsCode, source, 'sub-workflow drifted from n8n/qa-aggregation.js')
+  for (const node of workflow.nodes) {
+    const code = node.parameters.jsCode
+    if (typeof code !== 'string' || !code.includes('function aggregate(')) continue
+    assert.ok(code.includes(block), `${node.name}: embedded QA block drifted from n8n/qa-aggregation.js`)
+  }
+})
+
 test('portable workflow has no saved credentials or pinned execution data', () => {
   assert.equal(workflow.active, false)
   assert.deepEqual(workflow.pinData, {})
