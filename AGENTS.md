@@ -87,6 +87,31 @@ expensive failure mode, not any single operation.
   not change its behavior. Re-run it after any change to `n8n/qa-aggregation.js` or
   `n8n/qa-prepare.js`.
 
+## Open work, as of 2026-09-14
+
+Every live workflow now carries two sticky notes — ARCHITECTURE and OPERATOR GUIDE — holding this
+same state. The stickies are authoritative for anything n8n-side; this section mirrors them so the
+repo alone is enough to pick the work back up.
+
+1. **QA scope misclassification — diagnosed, not fixed.** The reviewer returns
+   `scope.kind = DOCUMENTATION_ONLY` for plans that propose building executable workflows. The
+   `documentationOnly` guard in `n8n/qa-aggregation.js` then overwrites five checks to
+   NOT_APPLICABLE. The guard only tests persistence signals, so a plan that builds a workflow but
+   touches no database slips through. Execution 188 shows the failure, 191 shows the guard catching
+   an equivalent case only because identity columns were present. Proposed fix, not applied: treat
+   `workflowDeclaration.placement === 'SEPARATE_OPERATIONAL'` as disqualifying documentation-only
+   scope. Wanted first: the dataset run below.
+2. **The 9-row evaluation dataset has never run against its own rows.** The bug that discarded them
+   is fixed, but that fix is itself untested — nothing has fed a real row through the
+   `Apply dataset row` node. Claude cannot trigger it; MCP refuses evaluation triggers, so a human
+   runs it from the harness's Evaluations tab. Row `live-188-scope-misclassification` is expected to
+   FAIL, because it encodes correct behaviour rather than current behaviour.
+3. **Branch not merged.** `stabilize-agent-team` is pushed with CI green. No PR opened.
+4. **Render still serves pre-refactor commit `96f535a`.** Harmless, since Nuxt is unchanged by this
+   work, but a Manual Deploy is needed to pick up the branch. A GitHub push alone does not deploy.
+5. **The old workflow is still armed as a rollback.** `Yy1nLNhzRE65ezjw`, inactive. Archive it once
+   production traffic has proven the replacement; there is no cost to leaving it.
+
 ## Before you say it works
 
 ```bash
