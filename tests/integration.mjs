@@ -33,5 +33,12 @@ try {
   mode='failure'; const failed=await post('Book club'); assert.equal(failed.status,502); assert.ok(!(await failed.text()).includes('private upstream failure'))
   mode='timeout'; assert.equal((await post('Book club')).status,504)
   assert.equal(calls,4,'no retries')
-  console.log('PASS: password-protected production page/API, rejected cross-site requests, input validation, authenticated webhook, results, malformed response, sanitized failure, timeout, no retries')
+  // Five authenticated POSTs so far. Five more reach the limit of 10; the 11th is refused before n8n.
+  for (let i=0;i<5;i++) assert.equal((await post(' ')).status,400)
+  const limited=await post('Book club'); assert.equal(limited.status,429)
+  assert.ok(Number(limited.headers.get('retry-after'))>0,'429 carries Retry-After')
+  assert.equal(calls,4,'rate-limited requests never reach the webhook')
+  const other=await fetch('http://127.0.0.1:3199/api/run',{method:'POST',headers:{...auth,'Content-Type':'application/json','X-Forwarded-For':'203.0.113.7, 10.0.0.1'},body:JSON.stringify({idea:' '})})
+  assert.equal(other.status,400,'another client address has its own allowance')
+  console.log('PASS: password-protected production page/API, rejected cross-site requests, input validation, authenticated webhook, results, malformed response, sanitized failure, timeout, no retries, rate limit of 10 per client address with Retry-After')
 } finally {child.kill(); mock.closeAllConnections(); await new Promise(r=>mock.close(r))}
