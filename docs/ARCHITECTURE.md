@@ -34,7 +34,8 @@ sequenceDiagram
 | --- | --- | --- |
 | `app/app.vue` | Input, loading/error states, escaped text rendering | Store secrets or persist runs |
 | `server/middleware/team-auth.ts` | Shared browser password, cross-site mutation check, fail-closed production config | Individual accounts or rate limiting |
-| `server/api/run.post.ts` | Validation, private config, one webhook call, error boundary | Call OpenAI directly or retry runs |
+| `server/api/run.post.ts` | Run limit check, validation, private config, one webhook call, error boundary | Call OpenAI directly or retry runs |
+| `server/utils/run-limit.ts` | In-memory hourly run count per client address (`NUXT_RUN_LIMIT_PER_HOUR`, default 10) | Persist counts, share them across instances, or cap total spend |
 | `shared/contract.ts` | Shared types and runtime response validation | Trust arbitrary upstream fields |
 | `n8n/agent-team.json` | Sequencing, prompts, model requests, aggregation | Execute generated code or deploy apps |
 | n8n credentials | Webhook authentication and OpenAI key storage | Publish credentials with workflow exports |
@@ -75,7 +76,7 @@ This is a sequential prompt pipeline with five roles. It has no tools, feedback 
 Suggested extension order:
 
 1. Require agents to label assumptions and distinguish requirements from suggestions; have QA challenge scope and ambiguities.
-2. Configure the included shared-password gate over HTTPS for a small team; add server-side usage limits and individual identity when needed (see HOSTING.md).
+2. Configure the included shared-password gate over HTTPS for a small team; a per-address hourly run limit is included; add individual identity and per-user budgets when needed (see HOSTING.md).
 3. Add real evaluation examples for usefulness, disagreement, and scope discipline.
 4. Add persisted runs only when users need history; migrate to asynchronous jobs only when measured run duration requires it.
 5. Introduce action-taking tools only with explicit authorization, constrained permissions, and reviewable outputs.

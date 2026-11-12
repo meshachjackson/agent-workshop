@@ -3,6 +3,13 @@ import { parseIdea, parseResult } from '#shared/contract'
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, 'Cache-Control', 'no-store')
+  // team-auth middleware has already passed, so only authenticated requests are counted.
+  const client = clientAddress(getHeader(event, 'x-forwarded-for'), event.node.req.socket.remoteAddress)
+  const decision = runLimiter.check(client, resolveRunLimit(useRuntimeConfig(event).runLimitPerHour))
+  if (!decision.allowed) {
+    setResponseHeader(event, 'Retry-After', decision.retryAfterSeconds)
+    throw createError({ statusCode: 429, statusMessage: 'Run limit reached for this hour. Try again later.' })
+  }
   if (!getHeader(event, 'content-type')?.toLowerCase().startsWith('application/json')) throw createError({ statusCode: 415, statusMessage: 'Send JSON with an idea field.' })
   let idea: string
   try { idea = parseIdea(await readBody(event)) } catch { throw createError({ statusCode: 400, statusMessage: 'Enter an idea between 1 and 5,000 characters.' }) }

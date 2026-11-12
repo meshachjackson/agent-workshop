@@ -20,6 +20,7 @@ Connect the GitHub repository and configure:
 | Secret | `NUXT_N8N_WEBHOOK_URL`: production webhook URL |
 | Secret | `NUXT_N8N_WEBHOOK_SECRET`: n8n's X-Agent-Secret value |
 | Timeout | `NUXT_N8N_TIMEOUT_MS=120000` |
+| Run limit | `NUXT_RUN_LIMIT_PER_HOUR=10` (optional; 10 is the default) |
 
 Build dependencies must be installed during the build. OpenAI credentials stay in n8n. The runtime does not read your laptop's `.env`; enter values in the hosting dashboard.
 
@@ -35,7 +36,16 @@ Use a health check that supports the protected service, or a TCP check. Do not d
 
 ## Limitations
 
-One shared login means no per-person audit or revocation. Rotating the password and restarting the service revokes the old password for everyone. Browsers may cache Basic credentials, so there is no reliable in-app logout button. This version has no brute-force protection, per-user budgets, or server-side concurrency limiter; use a strong random password and a small trusted group. Check provider usage limits and monitor executions. Timeout does not cancel an n8n run.
+One shared login means no per-person audit or revocation. Rotating the password and restarting the service revokes the old password for everyone. Browsers may cache Basic credentials, so there is no reliable in-app logout button. This version has no brute-force protection on the login and no per-user budgets; use a strong random password and a small trusted group. Check provider usage limits and monitor executions. Timeout does not cancel an n8n run.
+
+## Run limit
+
+Each run makes five OpenAI calls, so the server limits `/api/run` to 10 requests per hour per client address. The next request inside that hour returns HTTP 429 with a `Retry-After` header giving the seconds until the hour ends. Change the number with `NUXT_RUN_LIMIT_PER_HOUR` (default 10).
+
+- Per client address: the first `X-Forwarded-For` address, else the socket address. Teammates behind one office or VPN address share one allowance.
+- Only requests that passed the team password are counted. Every such POST counts, including ones that fail validation or fail in n8n.
+- Counts are kept in server memory. They reset when the server restarts, which on Render Free includes waking from sleep and every deploy. Running more than one instance would give each its own count.
+- It is a cost guard for a trusted group, not a security boundary: someone who has the password can send a different `X-Forwarded-For` value if the host does not overwrite that header. It does not cap total spend or concurrent runs.
 
 ## Checks before sharing
 
