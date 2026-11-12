@@ -77,7 +77,7 @@ Suggested extension order:
 
 1. Require agents to label assumptions and distinguish requirements from suggestions; have QA challenge scope and ambiguities.
 2. Configure the included shared-password gate over HTTPS for a small team; a per-address hourly run limit is included; add individual identity and per-user budgets when needed (see HOSTING.md).
-3. Add real evaluation examples for usefulness, disagreement, and scope discipline.
+3. Add real evaluation examples for usefulness, disagreement, and scope discipline. The first three are in [evaluation-examples.json](evaluation-examples.json) and `tests/evaluation-examples.test.ts` checks their shape; they are not yet run against a model.
 4. Add persisted runs only when users need history; migrate to asynchronous jobs only when measured run duration requires it.
 5. Introduce action-taking tools only with explicit authorization, constrained permissions, and reviewable outputs.
 
