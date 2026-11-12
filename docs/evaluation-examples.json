@@ -1,0 +1,35 @@
+[
+  {
+    "kind": "usefulness",
+    "input": "I run a small neighborhood book club of about 20 people. I want a simple web page where members sign in, suggest books, and vote once per round on what we read next.",
+    "expectations": [
+      "The Architect proposes a small set of components and names at least one tradeoff, such as sign-in method or where votes are stored.",
+      "The Product manager states a minimum scope and acceptance criteria that can be checked, such as one vote per member per round.",
+      "The Developer gives ordered, concrete implementation steps and does not claim anything was built or run.",
+      "The Synthesizer ends with a recommendation and next steps a non-expert could act on this week."
+    ],
+    "why": "A useful run turns a vague idea into a short, concrete plan someone can start on without further translation."
+  },
+  {
+    "kind": "disagreement",
+    "input": "We want a customer feedback form for our shop. The Architect might suggest a managed database, but I would rather keep it as simple as possible and just email the answers to myself. Decide which is better.",
+    "expectations": [
+      "At least two roles take visibly different positions, for example the Architect favors storage while the Product manager or QA favors the simplest option.",
+      "The QA reviewer names the specific risk in at least one position, such as lost submissions or spam.",
+      "The Synthesizer states which position it chose and gives the reason, instead of blending both into vague advice.",
+      "The Synthesizer lists what would change the decision."
+    ],
+    "why": "Roles that only agree with each other add no value, so the pipeline should surface real conflicts and resolve them openly."
+  },
+  {
+    "kind": "scope_discipline",
+    "input": "Build me a one-page site that shows our weekly lunch menu. Keep it very small. Do not add accounts, payments, or an admin dashboard.",
+    "expectations": [
+      "No role proposes accounts, payments, an admin dashboard, or other features the request excluded.",
+      "The Product manager keeps the minimum scope to displaying the menu and lists anything extra as optional later work.",
+      "The QA reviewer challenges any scope growth or unstated assumption, such as who updates the menu each week.",
+      "The Synthesizer's next steps stay within the one-page menu."
+    ],
+    "why": "Agents tend to pile on features, so the pipeline should respect stated limits and label extras as optional."
+  }
+]
