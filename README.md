@@ -6,6 +6,7 @@ A minimal Nuxt → n8n → OpenAI proof of concept. One form, one server endpoin
 
 - [Architecture, data flow, design decisions, and extension guide](docs/ARCHITECTURE.md)
 - [Secure team hosting proposal](docs/HOSTING.md)
+- [Environment variables](docs/ENVIRONMENT.md)
 - [Importable n8n workflow](n8n/agent-team.json)
 - [Environment template](.env.example)
 
