@@ -1,0 +1,19 @@
+# Copy to .oss.yml at the repository root. Every repo declares its tier.
+#
+# tier: public | instance | private | client
+#   public    the open source upstream
+#   instance  a private fork of a public repo
+#   private   never published
+#   client    never eligible
+tier: public
+
+# upstream: the public repo this one forks from. Empty for a public repo.
+# An instance sets it to the public repo, for example example-org/example-app.
+upstream: ""
+
+# license: SPDX id of the license for this repo.
+license: MIT
+
+# deny_extra: extra patterns the pre-push check must block for this repo, on
+# top of the maintainer's own list. One pattern per entry.
+deny_extra: []

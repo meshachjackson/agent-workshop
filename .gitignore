@@ -8,3 +8,25 @@ node_modules/
 Icon?
 *.log
 coverage/
+
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Instance values live in a fork, never upstream. Upstream ignores them so
+# nothing personal lands here by accident. A fork removes this line and
+# commits its own instance/ folder.
+instance/
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
+
+# Local agent and memory folders
+.claude/
+.remember/
